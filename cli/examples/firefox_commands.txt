@@ -1,0 +1,31 @@
+# FoxProxy Command Examples
+
+# Get information about running Firefox instances
+fox.cmd -Action info
+
+# Open a URL in the current window
+fox.cmd -Action open -Url "https://github.com" -Tab "current"
+
+# Open a URL in a new tab
+fox.cmd -Action open -Url "https://github.com" -Tab "tab"
+
+# Open a URL in a new window
+fox.cmd -Action open -Url "https://github.com" -Tab "new"
+
+# Perform a Google search in a new tab
+fox.cmd -Action search -Query "firefox command line automation" -Tab "tab"
+
+# Open a private browsing window
+fox.cmd -Action private
+
+# Open a private browsing window with a specific URL
+fox.cmd -Action private -Url "https://duckduckgo.com"
+
+# Reload Firefox
+fox.cmd -Action reload
+
+# Restart Firefox
+fox.cmd -Action restart
+
+# Quit Firefox
+fox.cmd -Action quit

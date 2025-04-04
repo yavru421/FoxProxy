@@ -1,0 +1,30 @@
+{
+  "name": "Sample Login Workflow",
+  "description": "A sample workflow that guides you through logging into a website",
+  "steps": [
+    {
+      "instruction": "First, we'll open the login page",
+      "message": "This is the login form",
+      "selector": "form",
+      "selectorType": "css",
+      "waitForClick": false,
+      "required": false,
+      "delay": 2
+    },
+    {
+      "instruction": "Now, click on the username field and enter your username",
+      "message": "Click here to enter your username",
+      "selector": "input[type='text'], input[name='username'], input[type='email']",
+      "selectorType": "css",
+      "waitForClick": true,
+      "required": true,
+      "delay": 1
+    },
+    {
+      "instruction": "Next, click on the password field and enter your password",
+      "message": "Click here to enter your password",
+      "selector": "input[type='password']",
+      "selectorType": "css",
+      "waitForClick": true,
+      "required": true,
+      "delay": 1

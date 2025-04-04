@@ -1,0 +1,16 @@
+{
+  "name": "Workflow Name",
+  "description": "Description of what the workflow does",
+  "steps": [
+    {
+      "instruction": "Human-readable step description",
+      "url": "https://example.com/page", // Optional
+      "selector": "CSS or XPath selector",
+      "selectorType": "css", // or "xpath", "id", etc.
+      "message": "What this step is doing",
+      "required": true, // Whether to stop if this step fails
+      "delay": 2 // Seconds to wait after this step
+    },
+    // More steps...
+  ]
+}

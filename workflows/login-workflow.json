@@ -1,0 +1,47 @@
+{
+  "name": "Sample Login Workflow",
+  "description": "Automates the process of logging into a website",
+  "steps": [
+    {
+      "instruction": "Navigate to the login page",
+      "url": "https://example.com/login",
+      "selector": "form.login-form",
+      "selectorType": "css",
+      "message": "Located the login form",
+      "required": true,
+      "delay": 2
+    },
+    {
+      "instruction": "Enter username",
+      "selector": "input[name='username'], input[type='email']",
+      "selectorType": "css",
+      "message": "Clicking username field",
+      "required": true,
+      "delay": 1
+    },
+    {
+      "instruction": "Enter password after clicking username field",
+      "selector": "input[type='password']",
+      "selectorType": "css",
+      "message": "Clicking password field",
+      "required": true,
+      "delay": 1
+    },
+    {
+      "instruction": "Click login button",
+      "selector": "button[type='submit'], input[type='submit']",
+      "selectorType": "css",
+      "message": "Submitting login credentials",
+      "required": true,
+      "delay": 2
+    },
+    {
+      "instruction": "Verify successful login",
+      "selector": ".dashboard, .user-profile, .account-info",
+      "selectorType": "css",
+      "message": "Checking for dashboard elements",
+      "required": false,
+      "delay": 3
+    }
+  ]
+}
