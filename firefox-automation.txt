@@ -1,0 +1,378 @@
+# Firefox Automation Framework
+# A practical implementation using Selenium WebDriver with PowerShell
+# This script provides a complete framework for Firefox automation tasks
+
+param (
+    [Parameter(Mandatory=$false)]
+    [string]$Action = "info",
+    
+    [Parameter(Mandatory=$false)]
+    [string]$Url = "",
+    
+    [Parameter(Mandatory=$false)]
+    [string]$Workflow = "",
+    
+    [Parameter(Mandatory=$false)]
+    [switch]$Private = $false,
+    
+    [Parameter(Mandatory=$false)]
+    [int]$WaitTime = 2
+)
+
+# Setup function - only needs to be run once to install prerequisites
+function Install-Prerequisites {
+    Write-Host "Setting up Firefox automation environment..." -ForegroundColor Cyan
+    
+    # Check if Chocolatey is installed
+    if (-not (Get-Command choco -ErrorAction SilentlyContinue)) {
+        Write-Host "Installing Chocolatey..." -ForegroundColor Yellow
+        Set-ExecutionPolicy Bypass -Scope Process -Force
+        [System.Net.ServicePointManager]::SecurityProtocol = [System.Net.ServicePointManager]::SecurityProtocol -bor 3072
+        Invoke-Expression ((New-Object System.Net.WebClient).DownloadString('https://chocolatey.org/install.ps1'))
+    }
+    
+    # Install Firefox if not present
+    if (-not (Test-Path "${env:ProgramFiles}\Mozilla Firefox\firefox.exe")) {
+        Write-Host "Installing Firefox via Chocolatey..." -ForegroundColor Yellow
+        choco install firefox -y
+    }
+    
+    # Install required PowerShell modules
+    if (-not (Get-Module -ListAvailable -Name Selenium)) {
+        Write-Host "Installing Selenium PowerShell module..." -ForegroundColor Yellow
+        Install-PackageProvider -Name NuGet -Force -Scope CurrentUser
+        Install-Module -Name Selenium -Force -Scope CurrentUser
+    }
+    
+    # Download GeckoDriver
+    $geckoDriverPath = "$env:USERPROFILE\geckodriver.exe"
+    if (-not (Test-Path $geckoDriverPath)) {
+        Write-Host "Downloading GeckoDriver..." -ForegroundColor Yellow
+        
+        # Set TLS 1.2 for download
+        [Net.ServicePointManager]::SecurityProtocol = [Net.SecurityProtocolType]::Tls12
+        
+        $url = "https://github.com/mozilla/geckodriver/releases/download/v0.32.0/geckodriver-v0.32.0-win64.zip"
+        $output = "$env:TEMP\geckodriver.zip"
+        
+        # Download and extract
+        Invoke-WebRequest -Uri $url -OutFile $output
+        Expand-Archive -Path $output -DestinationPath $env:USERPROFILE -Force
+        Remove-Item $output
+    }
+    
+    Write-Host "Setup complete! You're ready to automate Firefox." -ForegroundColor Green
+}
+
+# Initialize Firefox with options
+function Initialize-Firefox {
+    param (
+        [switch]$Private = $false
+    )
+    
+    try {
+        # Import Selenium module
+        Import-Module Selenium
+        
+        # Create Firefox options
+        $firefoxOptions = [OpenQA.Selenium.Firefox.FirefoxOptions]::new()
+        
+        # Configure for private browsing if requested
+        if ($Private) {
+            $firefoxOptions.AddArgument("-private")
+            Write-Host "Starting Firefox in private browsing mode" -ForegroundColor Magenta
+        }
+        
+        # Start Firefox with options
+        $driver = Start-SeFirefox -Options $firefoxOptions
+        Write-Host "Firefox started successfully" -ForegroundColor Green
+        return $driver
+    }
+    catch {
+        Write-Host "Error starting Firefox: $_" -ForegroundColor Red
+        exit
+    }
+}
+
+# Navigate to a URL
+function Navigate-ToUrl {
+    param (
+        $Driver,
+        $Destination
+    )
+    
+    try {
+        Enter-SeUrl -Driver $Driver -Url $Destination
+        Write-Host "Navigated to $Destination" -ForegroundColor Green
+        Start-Sleep -Seconds $WaitTime
+    }
+    catch {
+        Write-Host "Error navigating to $Destination`: $_" -ForegroundColor Red
+    }
+}
+
+# Fill out a form
+function Fill-Form {
+    param (
+        $Driver,
+        $FormData
+    )
+    
+    try {
+        foreach ($field in $FormData.Keys) {
+            $element = Find-SeElement -Driver $Driver -Name $field
+            if ($element) {
+                Write-Host "Filling field: $field" -ForegroundColor Cyan
+                $element | Send-SeKeys -Keys $FormData[$field]
+            }
+            else {
+                Write-Host "Field not found: $field" -ForegroundColor Yellow
+            }
+        }
+        Write-Host "Form filled successfully" -ForegroundColor Green
+    }
+    catch {
+        Write-Host "Error filling form: $_" -ForegroundColor Red
+    }
+}
+
+# Click an element by various selectors
+function Click-Element {
+    param (
+        $Driver,
+        $Selector,
+        $SelectorType = "Id"
+    )
+    
+    try {
+        $element = switch ($SelectorType) {
+            "Id" { Find-SeElement -Driver $Driver -Id $Selector }
+            "Name" { Find-SeElement -Driver $Driver -Name $Selector }
+            "ClassName" { Find-SeElement -Driver $Driver -ClassName $Selector }
+            "XPath" { Find-SeElement -Driver $Driver -XPath $Selector }
+            "CssSelector" { Find-SeElement -Driver $Driver -CssSelector $Selector }
+            "TagName" { Find-SeElement -Driver $Driver -TagName $Selector }
+            default { Find-SeElement -Driver $Driver -Id $Selector }
+        }
+        
+        if ($element) {
+            Write-Host "Clicking element: $Selector" -ForegroundColor Cyan
+            $element | Invoke-SeClick
+            Start-Sleep -Seconds 1
+            return $true
+        }
+        else {
+            Write-Host "Element not found: $Selector" -ForegroundColor Yellow
+            return $false
+        }
+    }
+    catch {
+        Write-Host "Error clicking element: $_" -ForegroundColor Red
+        return $false
+    }
+}
+
+# Extract data from page
+function Extract-PageData {
+    param (
+        $Driver,
+        $Selectors
+    )
+    
+    $results = @{}
+    
+    try {
+        foreach ($key in $Selectors.Keys) {
+            $selectorInfo = $Selectors[$key]
+            $element = Find-SeElement -Driver $Driver -XPath $selectorInfo.XPath
+            
+            if ($element) {
+                if ($selectorInfo.Attribute) {
+                    $value = Get-SeElementAttribute -Element $element -Attribute $selectorInfo.Attribute
+                } else {
+                    $value = Get-SeElementText -Element $element
+                }
+                $results[$key] = $value
+                Write-Host "Extracted $key`: $value" -ForegroundColor Cyan
+            }
+            else {
+                Write-Host "Element not found for $key" -ForegroundColor Yellow
+                $results[$key] = $null
+            }
+        }
+        
+        Write-Host "Data extraction complete" -ForegroundColor Green
+        return $results
+    }
+    catch {
+        Write-Host "Error extracting data: $_" -ForegroundColor Red
+        return $results
+    }
+}
+
+# Execute a workflow file
+function Execute-Workflow {
+    param (
+        $Driver,
+        $WorkflowPath
+    )
+    
+    try {
+        # Check if workflow file exists
+        if (-not (Test-Path $WorkflowPath)) {
+            Write-Host "Workflow file not found: $WorkflowPath" -ForegroundColor Red
+            return $false
+        }
+        
+        # Load workflow JSON
+        $workflow = Get-Content $WorkflowPath -Raw | ConvertFrom-Json
+        
+        Write-Host "Executing workflow: $($workflow.name)" -ForegroundColor Cyan
+        Write-Host "Description: $($workflow.description)" -ForegroundColor Cyan
+        
+        # Process each step in the workflow
+        foreach ($step in $workflow.steps) {
+            Write-Host "`nStep: $($step.instruction)" -ForegroundColor Yellow
+            
+            # Navigate if URL is provided
+            if ($step.url) {
+                Navigate-ToUrl -Driver $Driver -Destination $step.url
+            }
+            
+            # Handle element interaction if selector is provided
+            if ($step.selector) {
+                $selectorType = if ($step.selectorType -eq "css") { "CssSelector" } else { $step.selectorType }
+                $clicked = Click-Element -Driver $Driver -Selector $step.selector -SelectorType $selectorType
+                
+                if (-not $clicked -and $step.required) {
+                    Write-Host "Required step failed, workflow cannot continue" -ForegroundColor Red
+                    return $false
+                }
+            }
+            
+            # Wait if delay is specified
+            if ($step.delay -gt 0) {
+                Start-Sleep -Seconds $step.delay
+            }
+        }
+        
+        Write-Host "Workflow completed successfully!" -ForegroundColor Green
+        return $true
+    }
+    catch {
+        Write-Host "Error executing workflow: $_" -ForegroundColor Red
+        return $false
+    }
+}
+
+# Take screenshot
+function Take-Screenshot {
+    param (
+        $Driver,
+        $FilePath = "$env:USERPROFILE\Desktop\firefox_screenshot_$(Get-Date -Format 'yyyyMMdd_HHmmss').png"
+    )
+    
+    try {
+        Save-SeScreenshot -Driver $Driver -Path $FilePath
+        Write-Host "Screenshot saved to $FilePath" -ForegroundColor Green
+        return $FilePath
+    }
+    catch {
+        Write-Host "Error taking screenshot: $_" -ForegroundColor Red
+        return $null
+    }
+}
+
+# Show Firefox info
+function Show-FirefoxInfo {
+    $driver = Initialize-Firefox
+    
+    try {
+        # Navigate to about:support
+        Enter-SeUrl -Driver $driver -Url "about:support"
+        
+        # Extract Firefox version
+        $version = Invoke-SeJavaScript -Driver $driver -Script "return document.getElementById('version-box').textContent"
+        $userAgent = Invoke-SeJavaScript -Driver $driver -Script "return navigator.userAgent"
+        $platform = Invoke-SeJavaScript -Driver $driver -Script "return navigator.platform"
+        
+        # Display info
+        Write-Host "`nFirefox Information:" -ForegroundColor Cyan
+        Write-Host "=====================" -ForegroundColor Cyan
+        Write-Host "Version: $version" -ForegroundColor White
+        Write-Host "User Agent: $userAgent" -ForegroundColor White
+        Write-Host "Platform: $platform" -ForegroundColor White
+        Write-Host "`nFirefox is ready for automation!" -ForegroundColor Green
+    }
+    catch {
+        Write-Host "Error retrieving Firefox info: $_" -ForegroundColor Red
+    }
+    finally {
+        # Close browser
+        Stop-SeDriver -Driver $driver
+    }
+}
+
+# Main execution function
+function Start-FirefoxAutomation {
+    # Handle different actions
+    switch ($Action) {
+        "setup" {
+            Install-Prerequisites
+        }
+        
+        "info" {
+            Show-FirefoxInfo
+        }
+        
+        "navigate" {
+            if ($Url) {
+                $driver = Initialize-Firefox -Private:$Private
+                Navigate-ToUrl -Driver $driver -Destination $Url
+                
+                # Keep browser open
+                Read-Host "Press Enter to close the browser..."
+                Stop-SeDriver -Driver $driver
+            }
+            else {
+                Write-Host "URL parameter is required for navigate action" -ForegroundColor Red
+            }
+        }
+        
+        "workflow" {
+            if ($Workflow -and (Test-Path $Workflow)) {
+                $driver = Initialize-Firefox -Private:$Private
+                Execute-Workflow -Driver $driver -WorkflowPath $Workflow
+                
+                # Keep browser open
+                Read-Host "Press Enter to close the browser..."
+                Stop-SeDriver -Driver $driver
+            }
+            else {
+                Write-Host "Valid workflow file path is required for workflow action" -ForegroundColor Red
+            }
+        }
+        
+        "screenshot" {
+            $driver = Initialize-Firefox -Private:$Private
+            
+            if ($Url) {
+                Navigate-ToUrl -Driver $driver -Destination $Url
+            }
+            
+            # Take screenshot after navigation
+            $screenshotPath = Take-Screenshot -Driver $driver
+            
+            # Close browser
+            Stop-SeDriver -Driver $driver
+        }
+        
+        default {
+            Write-Host "Unknown action: $Action" -ForegroundColor Red
+            Write-Host "Valid actions: setup, info, navigate, workflow, screenshot" -ForegroundColor Yellow
+        }
+    }
+}
+
+# Execute main function based on parameters
+Start-FirefoxAutomation

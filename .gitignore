@@ -1,0 +1,44 @@
+# PowerShell logs and modules
+*.psd1
+*.psm1
+*.ps1.log
+*.psm1.log
+
+# Debug files
+*.dbg
+*.pdb
+*.psdbg
+
+# User configuration files
+*.user
+*.userprefs
+*.usertasks
+*.suo
+*.bak
+
+# Credentials and secrets (never commit these!)
+*creds*.xml
+*secret*.txt
+*password*.txt
+*token*.txt
+
+# Temporary files and directories
+temp/
+tmp/
+.tmp/
+.temp/
+*.tmp
+*.temp
+[Tt]emp/
+[Oo]bj/
+[Bb]in/
+
+# Logs
+logs/
+*.log
+log.txt
+
+# OS specific files
+.DS_Store
+Thumbs.db
+desktop.ini

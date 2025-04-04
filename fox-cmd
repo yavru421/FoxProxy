@@ -1,0 +1,65 @@
+@echo off
+:: Firefox Automation Command Line Wrapper
+:: Provides an easy interface to the Firefox Automation Framework
+
+:: Get current script directory
+set SCRIPT_DIR=%~dp0
+
+:: Parse command line arguments
+set ACTION=%1
+set URL=
+set WORKFLOW=
+set PRIVATE=
+
+if "%ACTION%"=="" (
+    echo Firefox Automation Tool
+    echo ======================
+    echo.
+    echo Usage: fox.cmd [action] [options]
+    echo.
+    echo Actions:
+    echo   setup        - Install required components
+    echo   info         - Display Firefox information
+    echo   navigate     - Open a URL in Firefox
+    echo   workflow     - Execute an automation workflow
+    echo   screenshot   - Take a screenshot
+    echo.
+    echo Options:
+    echo   -url [url]         - Specify URL to navigate to
+    echo   -workflow [path]   - Specify workflow file path
+    echo   -private           - Use private browsing mode
+    echo.
+    echo Examples:
+    echo   fox.cmd setup
+    echo   fox.cmd navigate -url https://example.com
+    echo   fox.cmd workflow -workflow login-workflow.json -private
+    echo.
+    exit /b
+)
+
+:: Parse remaining arguments
+:parse
+if "%2"=="" goto execute
+if /i "%2"=="-url" (
+    set URL=%3
+    shift
+    shift
+    goto parse
+)
+if /i "%2"=="-workflow" (
+    set WORKFLOW=%3
+    shift
+    shift
+    goto parse
+)
+if /i "%2"=="-private" (
+    set PRIVATE=-Private
+    shift
+    goto parse
+)
+shift
+goto parse
+
+:execute
+:: Execute the PowerShell automation script with parameters
+powershell -ExecutionPolicy Bypass -File "%SCRIPT_DIR%\firefox-automation.ps1" -Action %ACTION% -Url "%URL%" -Workflow "%WORKFLOW%" %PRIVATE%
